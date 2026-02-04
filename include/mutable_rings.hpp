@@ -57,7 +57,9 @@ class MutableRings {
     float lp_1 = lp_decay_1_;
     float lp_2 = lp_decay_2_;
 
-    for (auto&& [in_s, out_s] : std::views::zip(in, out)) {
+    for (size_t i = 0; i < in.size(); ++i) {
+      const StereoSample& in_s = in[i];
+      StereoSample& out_s = out[i];
       float wet = 0;
       float apout = 0.0f;
       engine_.Advance();

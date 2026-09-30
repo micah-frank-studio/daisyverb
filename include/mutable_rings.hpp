@@ -1,6 +1,19 @@
 // Copyright 2023 Katherine Whitlock
 // Copyright 2014 Emilie Gillet
 // Reverb.
+//
+// GOTCHA (added 2026-09-30, micah-frank-studio fork): `set_time()` sets the
+// reverb tank's LOOP FEEDBACK GAIN, not a decay time. It is only stable BELOW
+// 1.0. At >= 1.0 the recirculating loop has round-trip gain >= 1, so the tail
+// ramps up every pass until it clips (audible distortion) — this is NOT a CPU
+// cost; the reverb does identical work per sample at any value. A non-decaying
+// loop also traps denormals in the (often unzeroed SDRAM) buffer, which are
+// slow/artifacty on Cortex-M7 and never flush out. For a stable INFINITE tail
+// do NOT just push set_time to 1.0; instead FREEZE: set_time(1.0f) AND
+// set_input_gain(0.0f) so the loop is lossless but nothing new builds up. Also
+// add a tiny alternating-sign anti-denormal offset (~1e-15) to the input. See
+// the reverb section of the "time" control in each host project (e.g. Minus12
+// kVerbMaxDecay/kVerbFreezeKnob) for a working pattern.
 
 #pragma once
 
@@ -107,6 +120,8 @@ class MutableRings {
 
   inline void set_input_gain(float input_gain) { input_gain_ = input_gain; }
 
+  // reverb_time IS the loop feedback gain. Stable only < 1.0; at >= 1.0 it runs
+  // away and clips + traps denormals. For infinite tail use FREEZE (see header).
   inline void set_time(float reverb_time) { reverb_time_ = reverb_time; }
 
   inline void set_diffusion(float diffusion) { diffusion_ = diffusion; }
